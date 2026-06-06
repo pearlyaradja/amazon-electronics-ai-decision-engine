@@ -20,8 +20,8 @@ DECISIONS_DIR = os.path.join(OUTPUTS_DIR, "decisions")
 for path in [DATA_DIR, RAW_DATA_DIR, PROCESSED_DATA_DIR, MODELS_DIR, OUTPUTS_DIR, FIGURES_DIR, DECISIONS_DIR]:
     os.makedirs(path, exist_ok=True)
 
-# Dataset paths
-RAW_TSV_PATH = os.path.join(BASE_DIR, "dataset", "amazon_reviews_us_Electronics_v1_00.tsv", "amazon_reviews_us_Electronics_v1_00.tsv")
+# Dataset paths (located outside the ABSA project folder, at the final project root)
+RAW_TSV_PATH = os.path.join(os.path.dirname(BASE_DIR), "dataset", "amazon_reviews_us_Electronics_v1_00.tsv", "amazon_reviews_us_Electronics_v1_00.tsv")
 CLEANED_PARQUET_PATH = os.path.join(PROCESSED_DATA_DIR, "reviews_clean.parquet")
 
 # Aspect Keywords for Aspect Extraction (ABSA)

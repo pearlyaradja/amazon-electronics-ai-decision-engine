@@ -60,6 +60,7 @@ models/distilbert/
 # Outputs
 outputs/figures/
 outputs/decisions/
+outputs/*.csv
 
 # Temporary OS files
 .DS_Store
