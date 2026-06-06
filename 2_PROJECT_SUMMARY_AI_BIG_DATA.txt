@@ -1,0 +1,66 @@
+PROJECT SUMMARY  |  AI + Big Data Final Project
+Aspect-Based Sentiment Analysis + Review Quality Filter  |  Amazon US Electronics Dataset
+1. Tujuan Proyek
+Membangun sistem AI yang menganalisis ulasan pelanggan Amazon untuk menghasilkan keputusan otomatis apakah suatu produk layak Dipertahankan, Dievaluasi, atau Ditarik dari platform e-commerce.
+
+Sistem ini menggabungkan dua pendekatan:
+• Aspect-Based Sentiment Analysis (ABSA) - analisis sentimen bukan secara keseluruhan, tapi per aspek produk: harga, kualitas, pengiriman, dan layanan
+• Review Quality Filter - menyaring review tidak reliable sebelum dianalisis agar keputusan lebih akurat
+
+2. Dataset
+AtributDetailNama fileamazon_reviews_us_Electronics_v1_00.tsv.gzFormatTSV (tab-separated), compressed GZIPUkuran1.73 GBJumlah baris~3.09 juta ulasanPeriode1995 - 2015, kategori Electronics (US)Link downloadkaggle.com/datasets/cynthiarempel/amazon-us-customer-reviews-datasetLink alternatif S3s3.amazonaws.com/amazon-reviews-pds/tsv/amazon_reviews_us_Electronics_v1_00.tsv.gz
+Kolom yang digunakan dalam pipeline:
+KolomDigunakan untukreview_bodyInput teks utama untuk model AI (ABSA)star_rating (1-5)Ground truth label sentimen: 1-2=Negatif, 3=Netral, 4-5=Positifhelpful_votesFitur utama Quality Filter (review reliable atau tidak)total_votesHitung quality_ratio = helpful_votes / (total_votes + 1)verified_purchaseFitur Quality Filter: apakah pembelian terverifikasivineFitur Quality Filter: apakah review dari program berbayar Vineproduct_idKunci agregasi untuk scoring per produkproduct_categoryPengelompokan analisis per kategori
+3. Arsitektur Pipeline
+StepNamaTool / AlgoritmaOutput1PreprocessingApache Spark (PySpark)Data bersih ~1.2M baris dalam format Parquet2Quality FilterXGBoost + Random Forest (baseline)Label is_trusted per review (True/False)3ABSADistilBERT fine-tunedSentimen per aspek: harga, kualitas, pengiriman, layanan4Scoring EngineWeighted average formulaproduct_score (0-1) + weakness_flag per produk5Decision EngineRule-based thresholdKeputusan: Pertahankan / Evaluasi / Tarik6VisualisasiMatplotlib + Seaborn + WordCloudRadar chart, heatmap, WordCloud, confusion matrix
+Catatan penting: Quality Filter (Step 2) WAJIB dijalankan sebelum ABSA (Step 3). Hanya review dengan is_trusted = True yang masuk ke model ABSA.
+
+4. Detail Tiap Step
+Step 1 - Preprocessing dengan Apache Spark
+Tujuan: membersihkan dan menyiapkan data skala besar. Spark dipakai karena dataset 3M+ baris tidak efisien dengan Pandas biasa.
+• Drop baris yang null pada kolom review_body, star_rating, helpful_votes
+• Hapus karakter HTML dari teks review, ubah ke lowercase
+• Buat kolom baru: quality_ratio = helpful_votes / (total_votes + 1)
+• Buat kolom label sentimen dari star_rating (0=Negatif, 1=Netral, 2=Positif)
+• Sample ~40% data untuk efisiensi proses selanjutnya, simpan ke Parquet
+
+Step 2 - Review Quality Filter (Model 1)
+Tujuan: memprediksi apakah sebuah review cukup reliabel untuk dijadikan dasar keputusan. Target: review dengan quality_ratio > 0.5 dianggap reliable.
+Fitur input model:
+FiturDeskripsireview_lengthPanjang karakter review_bodyword_countJumlah kata dalam reviewquality_ratiohelpful_votes / (total_votes + 1)is_verifiedDari kolom verified_purchaseis_vineDari kolom vineexclamation_countJumlah tanda seru dalam tekscaps_ratioRasio huruf kapital terhadap total karakter
+• Algoritma utama: XGBoost Classifier
+• Algoritma baseline/pembanding: Random Forest
+• Metrik evaluasi: Accuracy, Precision, Recall, F1-Score, ROC-AUC
+
+Step 3 - Aspect-Based Sentiment Analysis / ABSA (Model 2)
+Tujuan: menganalisis sentimen bukan secara keseluruhan, tapi per aspek spesifik yang disebutkan dalam review.
+
+3a. Aspect Extraction (rule-based keyword matching):
+AspekContoh keyword yang dicariHargaexpensive, cheap, worth, overpriced, affordable, price, cost, valueKualitasbroken, durable, quality, material, build, sturdy, defective, excellentPengirimanshipping, delivery, arrived, package, fast, slow, damaged, lateLayanancustomer service, refund, return, support, warranty, replacement
+Jika keyword aspek ditemukan dalam review -> aspek PRESENT, lanjut ke klasifikasi sentimen. Jika tidak ditemukan -> label aspek = N/A.
+
+3b. Sentiment Classification per aspek:
+• Algoritma: DistilBERT fine-tuned (model transformer ringan, lebih cepat dari BERT penuh)
+• Input: kalimat dalam review yang mengandung keyword aspek
+• Output per review: { harga: Pos/Neg/NA, kualitas: Pos/Neg/NA, pengiriman: Pos/Neg/NA, layanan: Pos/Neg/NA }
+• Pretrained model HuggingFace yang dipakai: distilbert-base-uncased-finetuned-sst-2-english
+
+Step 4 - Scoring Engine
+Tujuan: mengagregasi semua hasil ABSA menjadi satu skor per produk.
+aspect_score[X] = (jumlah review Positif aspek X) / (total review yang menyebut aspek X)
+product_score   = rata-rata semua aspect_score x rata-rata quality_score
+weakness_flag   = aspek dengan aspect_score terendah
+
+Step 5 - Decision Engine
+Tujuan: menghasilkan keputusan otomatis platform berdasarkan product_score.
+KondisiKeputusanAksiproduct_score >= 0.65PERTAHANKANListing tetap aktif0.35 <= score < 0.65EVALUASINotifikasi seller: perbaiki aspek [weakness_flag]product_score < 0.35TARIKListing disuspend, review ulang 30 hari
+Step 6 - Visualisasi (4 wajib)
+VisualisasiIsiRadar ChartProfil 4 aspek sentimen per produk dalam satu grafik polarHeatmapAspect score vs product category, temukan pola masalah globalWordCloudKata paling sering muncul pada review negatif tiap aspekConfusion MatrixAkurasi Model 1 (Quality Filter) dan Model 2 (ABSA)
+5. Pemetaan Kriteria Penilaian
+KriteriaBobotDipenuhi olehPemilihan dan pemrosesan dataset20%Dataset 1.73GB Electronics + PySpark pipeline (Step 1)Algoritma AI dan implementasi30%XGBoost (Step 2) + DistilBERT ABSA (Step 3)Penggunaan Big Data tools20%Apache Spark memproses 3M+ baris (Step 1)Visualisasi dan interpretasi hasil20%4 visualisasi: Radar, Heatmap, WordCloud, Confusion Matrix (Step 6)Laporan dan presentasi10%Laporan 10-15 hal + video demo 10 menit
+6. Referensi
+[1] Esmaeilzadeh et al. (2022). Efficient Large Scale NLP Feature Engineering with Apache Spark. IEEE CCWC. DOI: 10.1109/CCWC54503.2022.9720765
+[2] Huang et al. (2023). Sentiment Analysis in E-Commerce Platforms: A Review of Current Techniques and Future Directions. IEEE Access. DOI: 10.1109/ACCESS.2023.3307308
+[3] Singh et al. (2022). Towards improving e-commerce customer review analysis for sentiment detection. Scientific Reports. DOI: 10.1038/s41598-022-26432-3
+[4] Alhadlaq & Altheneyan (2024). Distilroberta2gnn: A new hybrid deep learning approach for ABSA. PeerJ CS. DOI: 10.7717/peerj-cs.2267
+[5] Morgenthaler et al. (2024). Analyzing Amazon Products Sentiment: Comparative Study of ML, DL, and Transformer Techniques. Electronics 13(7). DOI: 10.3390/electronics13071305
