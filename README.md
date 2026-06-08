@@ -5,7 +5,7 @@
 [![XGBoost](https://img.shields.io/badge/XGBoost-2.0-green.svg)](https://xgboost.readthedocs.io/)
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-Transformers-yellow.svg)](https://huggingface.co/)
 
-Predicting whether an Amazon Electronics product listing should be **kept, evaluated, or pulled** — automatically. This project combines NLP-based review quality filtering with Aspect-Based Sentiment Analysis (ABSA) to deliver production-grade, data-driven product decisions.
+Predicting whether an Amazon Electronics product listing should be **kept, evaluated, or pulled**  automatically. This project combines NLP-based review quality filtering with Aspect-Based Sentiment Analysis (ABSA) to deliver production-grade, data-driven product decisions.
 
 **Target variable:** Decision Category — `PERTAHANKAN` / `EVALUASI` / `TARIK` (Rule-based classification, product-level)  
 **Goal:** Provide automated, explainable listing decisions for each product based on aggregated review sentiment across four key aspects: Price, Quality, Shipping, and Service.
