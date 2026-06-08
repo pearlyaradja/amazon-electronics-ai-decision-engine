@@ -16,12 +16,12 @@ Predicting whether an Amazon Electronics product listing should be **kept, evalu
 
 | Metric | Value | Interpretation |
 |--------|-------|----------------|
-| Total Products Analyzed | 14,948 | Unique product listings evaluated |
+| Total Products Analyzed | 23,426 | Unique product listings evaluated |
 | Reviews Processed | 60,000 | Trusted reviews after quality filtering |
-| PERTAHANKAN (Keep) | 1,992 (13.3%) | Score ≥ 0.65 — Listing remains active |
-| EVALUASI (Evaluate) | 10,557 (70.6%) | 0.35 ≤ Score < 0.65 — Seller notified |
-| TARIK (Pull) | 2,399 (16.0%) | Score < 0.35 — Listing suspended |
-| CRITICAL Priority Items | 707 | Immediate action required (Score < 0.25) |
+| PERTAHANKAN (Keep) | 2,938 (12.5%) | Score ≥ 0.65 — Listing remains active |
+| EVALUASI (Evaluate) | 16,817 (71.8%) | 0.35 ≤ Score < 0.65 — Seller notified |
+| TARIK (Pull) | 3,671 (15.7%) | Score < 0.35 — Listing suspended |
+| CRITICAL Priority Items | 1,022 | Immediate action required (Score < 0.25) |
 | ABSA Sentiment Accuracy | DistilBERT SST-2 | Pre-trained transformer, no fine-tuning needed |
 
 The system was evaluated end-to-end: from raw reviews → quality filter → aspect extraction → sentiment scoring → product-level aggregation → final decision. All outputs are fully explainable via `weakness_flags` per product.
@@ -141,7 +141,7 @@ Equal weight (25% each) applied across all 4 aspects. Score range: 0.0 (worst) t
 
 | Statistic | Value |
 |-----------|-------|
-| Total Products Scored | 14,948 |
+| Total Products Scored | 23,426 |
 | Mean Product Score | 0.488 |
 | Std Dev | 0.171 |
 | Min Score | 0.000 |
@@ -163,11 +163,11 @@ Equal weight (25% each) applied across all 4 aspects. Score range: 0.0 (worst) t
 **Priority Assignment**
 
 | Priority | Count | Trigger |
-|----------|-------|---------|
-| CRITICAL | 707 | TARIK + score < 0.25 |
-| HIGH | 2,428 | TARIK (score ≥ 0.25) or EVALUASI with ≥ 2 weakness flags |
-| MEDIUM | 9,821 | EVALUASI with < 2 weakness flags |
-| LOW | 1,992 | PERTAHANKAN |
+|----------|-------|--------|
+| CRITICAL | 1,022 | TARIK + score < 0.25 |
+| HIGH | 4,027 | TARIK (score ≥ 0.25) or EVALUASI with ≥ 2 weakness flags |
+| MEDIUM | 15,439 | EVALUASI with < 2 weakness flags |
+| LOW | 2,938 | PERTAHANKAN |
 
 **Most Common Weaknesses Detected**
 
@@ -354,9 +354,9 @@ The system's product-level decisions are driven by aggregated evidence — each 
 
 | Decision | Deadline | Items |
 |----------|----------|-------|
-| EVALUASI | 14 days from analysis date | 10,557 products |
-| TARIK | 30-day suspension review | 2,399 products |
-| PERTAHANKAN | No deadline | 1,992 products |
+| EVALUASI | 14 days from analysis date | 16,817 products |
+| TARIK | 30-day suspension review | 3,671 products |
+| PERTAHANKAN | No deadline | 2,938 products |
 
 ---
 
