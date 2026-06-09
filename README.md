@@ -15,7 +15,7 @@ Predicting whether an Amazon Electronics product listing should be **kept, evalu
 ## 🧭 Project Overview
 
 ### What Problem Does This Solve?
-E-commerce platforms like Amazon host millions of active product listings with thousands of new reviews flowing in every day. Manually evaluating listing quality while also filtering out fake reviews and spam — is not scalable. Without an automated system, low-quality listings continue to harm buyers and erode platform trust.
+E-commerce platforms like Amazon host millions of active product listings with thousands of new reviews flowing in every day. Manually evaluating listing quality while also filtering out fake reviews and spam is not scalable. Without an automated system, low-quality listings continue to harm buyers and erode platform trust.
 
 ### What Is the Solution?
 We built an **end-to-end AI pipeline** that automatically:
