@@ -22,7 +22,7 @@ We built an **end-to-end AI pipeline** that automatically:
 1. **Filters fake reviews** using a behavior-based ML classifier (XGBoost)
 2. **Analyzes sentiment per aspect** (Price, Quality, Shipping, Service) using the DistilBERT transformer
 3. **Computes a product score** (0.0–1.0) by aggregating sentiment signals across all 4 aspects
-4. **Delivers an automated decision** — PERTAHANKAN (Keep), EVALUASI (Evaluate), or TARIK (Pull) — backed by auditable, threshold-based rules
+4. **Delivers an automated decision** PERTAHANKAN (Keep), EVALUASI (Evaluate), or TARIK (Pull) backed by auditable, threshold-based rules
 
 ### What Were the Results?
 
