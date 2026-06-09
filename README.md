@@ -5,10 +5,78 @@
 [![XGBoost](https://img.shields.io/badge/XGBoost-2.0-green.svg)](https://xgboost.readthedocs.io/)
 [![HuggingFace](https://img.shields.io/badge/HuggingFace-Transformers-yellow.svg)](https://huggingface.co/)
 
-Predicting whether an Amazon Electronics product listing should be **kept, evaluated, or pulled**  automatically. This project combines NLP-based review quality filtering with Aspect-Based Sentiment Analysis (ABSA) to deliver production-grade, data-driven product decisions.
+Predicting whether an Amazon Electronics product listing should be **kept, evaluated, or pulled** automatically. This project combines NLP-based review quality filtering with Aspect-Based Sentiment Analysis (ABSA) to deliver production-grade, data-driven product decisions.
 
-**Target variable:** Decision Category — `PERTAHANKAN` / `EVALUASI` / `TARIK` (Rule-based classification, product-level)  
+**Target variable:** Decision Category  `PERTAHANKAN` / `EVALUASI` / `TARIK` (Rule-based classification, product-level)  
 **Goal:** Provide automated, explainable listing decisions for each product based on aggregated review sentiment across four key aspects: Price, Quality, Shipping, and Service.
+
+---
+
+## 🧭 Project Overview
+
+### What Problem Does This Solve?
+E-commerce platforms like Amazon host millions of active product listings with thousands of new reviews flowing in every day. Manually evaluating listing quality — while also filtering out fake reviews and spam — is not scalable. Without an automated system, low-quality listings continue to harm buyers and erode platform trust.
+
+### What Is the Solution?
+We built an **end-to-end AI pipeline** that automatically:
+1. **Filters fake reviews** using a behavior-based ML classifier (XGBoost)
+2. **Analyzes sentiment per aspect** (Price, Quality, Shipping, Service) using the DistilBERT transformer
+3. **Computes a product score** (0.0–1.0) by aggregating sentiment signals across all 4 aspects
+4. **Delivers an automated decision** — PERTAHANKAN (Keep), EVALUASI (Evaluate), or TARIK (Pull) — backed by auditable, threshold-based rules
+
+### What Were the Results?
+
+> ✅ **23,426 unique products** evaluated from **60,000 trusted reviews** processed
+
+| Decision | Products | Meaning |
+|----------|----------|---------|
+| 🟢 PERTAHANKAN (Keep) | **2,938** (12.5%) | Listing remains active — no issues detected |
+| 🟡 EVALUASI (Evaluate) | **16,817** (71.8%) | Seller notified + 14-day improvement deadline issued |
+| 🔴 TARIK (Pull) | **3,671** (15.7%) | Listing suspended — 1,022 flagged as CRITICAL priority |
+
+Every decision is accompanied by **`weakness_flags`** — a specific list of underperforming aspects — so sellers know exactly what needs to be fixed.
+
+### Why Does This Matter?
+- ⚡ **Scalable:** PySpark pipeline handles 1.2M+ reviews without memory constraints
+- 🔍 **Explainable:** Every decision traces back to a numeric score and specific aspect weaknesses
+- 🏭 **Production-ready:** Modular architecture — extendable to REST API, real-time scoring, and drift monitoring
+
+---
+
+
+## 📦 Dataset
+
+**Source:** [Amazon US Customer Reviews Dataset — Electronics](https://www.kaggle.com/datasets/cynthiarempel/amazon-us-customer-reviews-dataset?select=amazon_reviews_us_Electronics_v1_00.tsv)  
+**Platform:** Kaggle (originally from AWS Open Data Registry)  
+**File:** `amazon_reviews_us_Electronics_v1_00.tsv`  
+**Estimated File Size:** ~3.4 GB (TSV format, compressed)
+
+**Data Schema**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `marketplace` | String | Country code (US) |
+| `customer_id` | String | Unique customer identifier |
+| `review_id` | String | Unique review identifier |
+| `product_id` | String | ASIN — Amazon Standard Identification Number |
+| `product_title` | String | Full product listing title |
+| `product_category` | String | Category: "Electronics" |
+| `star_rating` | Integer | Rating 1–5 stars |
+| `helpful_votes` | Integer | Community upvotes for this review |
+| `total_votes` | Integer | Total votes received |
+| `vine` | String | Y/N — Amazon Vine paid reviewer program |
+| `verified_purchase` | String | Y/N — Confirmed purchase on Amazon |
+| `review_body` | String | Full review text — **primary ABSA input** |
+| `review_date` | String | Date of review submission |
+
+**Data Scale Through Pipeline**
+
+| Stage | Count |
+|-------|-------|
+| Raw reviews (initial load + join) | 1,239,196 |
+| After quality filtering (is_trusted = 1) | 425,803 |
+| Sampled for ABSA (2 batches × 30K) | 60,000 |
+| Unique products after ABSA scoring | 23,426 |
 
 ---
 
@@ -28,9 +96,34 @@ The system was evaluated end-to-end: from raw reviews → quality filter → asp
 
 ---
 
-## 📋 Model Evaluation
+## 📋 Model Evaluation — Review Quality Filter (Step 2)
 
-**Evaluation Metrics:** Sentiment accuracy per aspect, Product decision consistency, Pipeline completeness with full 60K review coverage
+**Task:** Binary classification — Trusted (1) vs Untrusted (0) review detection  
+**Training Split:** 80% Train (991,356 samples) / 20% Test (247,840 samples)  
+**Class Imbalance:** 86% Untrusted (0) / 14% Trusted (1) — handled via `scale_pos_weight` (XGBoost) and `class_weight='balanced'` (Random Forest)
+
+**Classification Report — XGBoost (Primary Model)**
+
+| Class | Precision | Recall | F1-Score | Support |
+|-------|-----------|--------|----------|---------|
+| 0 — Untrusted | 0.94 | 0.72 | 0.81 | 213,369 |
+| 1 — Trusted | 0.29 | 0.72 | 0.42 | 34,471 |
+| **Accuracy** | | | **0.72** | 247,840 |
+| Weighted Avg | 0.85 | 0.72 | 0.76 | 247,840 |
+| **ROC-AUC** | | | **0.7947** | |
+
+**Classification Report — Random Forest (Baseline)**
+
+| Class | Precision | Recall | F1-Score | Support |
+|-------|-----------|--------|----------|---------|
+| 0 — Untrusted | 0.94 | 0.68 | 0.79 | 213,369 |
+| 1 — Trusted | 0.28 | 0.75 | 0.40 | 34,471 |
+| **Accuracy** | | | **0.69** | 247,840 |
+| Weighted Avg | 0.85 | 0.69 | 0.74 | 247,840 |
+| **ROC-AUC** | | | **0.7928** | |
+
+**Why Recall > Precision for Trusted Class?**  
+With an 86/14 imbalanced dataset, we deliberately optimized for **high Recall on the Trusted class (0.72)**. A missed trusted review means lost signal for ABSA. A falsely included suspicious review merely dilutes the signal slightly — the lesser evil. XGBoost was selected over Random Forest due to higher ROC-AUC (0.7947 vs 0.7928).
 
 ---
 
@@ -161,6 +254,16 @@ We first explored a TF-IDF + SVM baseline (Person A's track), which served as a 
 | Pengiriman (Shipping) | shipping, delivery, arrived, package, fast | 81,624 (19.2%) |
 | Layanan (Service) | customer service, refund, return, warranty | 77,607 (18.2%) |
 
+**Multi-Aspect Handling Strategy**
+
+A single review can mention multiple aspects simultaneously (e.g., *"great price but poor quality"*). The implementation uses an **independent boolean flag system**:
+
+1. Each review receives a flag per aspect: `{harga: True/False, kualitas: True/False, pengiriman: True/False, layanan: True/False}`
+2. A review flagged `True` for multiple aspects is classified **once** with its full text via DistilBERT
+3. The resulting sentiment label (`POSITIVE`/`NEGATIVE`) is then **applied to all flagged aspects** in that review
+
+This is a deliberate trade-off: it avoids redundant inference calls (saving GPU time) at the cost of not isolating which sentence refers to which aspect. A review saying *"Great price, terrible quality"* would receive the same label for both `harga` and `kualitas`. This limitation is documented in the System Limitations section.
+
 **Sentiment Classification — DistilBERT (Batch 1 Results)**
 
 | Aspect | POSITIVE | NEGATIVE | N/A |
@@ -192,6 +295,9 @@ product_score = mean(score_harga, score_kualitas, score_pengiriman, score_layana
 ```
 Equal weight (25% each) applied across all 4 aspects. Score range: 0.0 (worst) to 1.0 (best).
 
+**Why NaN defaults to 0.5 (Neutral)?**  
+If a product's reviews never mention `pengiriman` (shipping), that aspect has no evidence — positive or negative. Assigning `NaN = 0.0` unfairly penalizes the product for an unmeasured dimension. Assigning `NaN = 1.0` would artificially inflate the score. `0.5` represents **epistemic neutrality** — *"no information available"* — and prevents the model from punishing or rewarding what it cannot measure.
+
 **Scoring Results**
 
 | Statistic | Value |
@@ -214,6 +320,13 @@ Equal weight (25% each) applied across all 4 aspects. Score range: 0.0 (worst) t
 | score ≥ 0.65 | PERTAHANKAN | Listing stays active. No action taken. |
 | 0.35 ≤ score < 0.65 | EVALUASI | Notify seller: fix aspect `[weakness_flags]`. 14-day deadline. |
 | score < 0.35 | TARIK | Listing suspended. Review again in 30 days. |
+
+**Why These Specific Thresholds (0.65 / 0.35)?**  
+Thresholds were designed with two business principles:
+- **Wide gray zone:** The EVALUASI band (0.35–0.65) is intentionally broad — covering 71.8% of products — giving sellers the opportunity to improve before facing suspension.
+- **Symmetric boundary:** Score ≥ 0.65 requires consistently more positive than negative signals. Score < 0.35 indicates persistent negativity. The symmetric gap around the 0.5 mean prevents accidental triggering at the center.
+
+> ⚠️ In production, thresholds should be recalibrated against real business KPIs (return rates, complaint rates) using A/B testing.
 
 **Priority Assignment**
 
@@ -272,7 +385,23 @@ Raw Review Text
 ### Prerequisites
 - Python 3.9+
 - Java Development Kit (JDK) 8 or 11 (required by Apache Spark)
-- 8GB+ RAM recommended (16GB for full dataset)
+- **GPU recommended** for DistilBERT inference (tested on NVIDIA RTX/GTX series, ~3 min/30K reviews)
+- CPU inference supported but slower (~20 min/30K reviews on standard laptop CPU)
+- 8GB+ RAM minimum (16GB recommended for full 1.2M dataset processing)
+
+**Key Library Versions (tested environment)**
+```
+pyspark==3.5.0
+xgboost==2.0
+scikit-learn>=1.2
+transformers>=4.30
+torch>=2.0
+pandas>=2.0
+numpy>=1.24
+matplotlib>=3.7
+seaborn>=0.12
+wordcloud>=1.9
+```
 
 ### Installation & Setup
 
